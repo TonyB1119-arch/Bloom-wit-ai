@@ -16,7 +16,7 @@ import {
 
 // WMO weather interpretation codes
 // https://open-meteo.com/en/docs#weathervariables
-const WMO_CODES: Record<number, string> = {
+export const WMO_CODES: Record<number, string> = {
 	0: "Clear",
 	1: "Mostly Clear",
 	2: "Partly Cloudy",
@@ -63,7 +63,7 @@ interface ResolvedLocation {
 	city?: string;
 }
 
-function getWeatherIcon(condition: string, isDay = true): ComponentType<LucideProps> {
+export function getWeatherIcon(condition: string, isDay = true): ComponentType<LucideProps> {
 	switch (condition) {
 		case "Clear":
 		case "Mostly Clear":
@@ -122,7 +122,7 @@ async function fetchWeatherForCoords(
 	};
 }
 
-async function resolveLocation(): Promise<ResolvedLocation> {
+export async function resolveLocation(): Promise<ResolvedLocation> {
 	// 1. Check saved coordinates from settings or localStorage
 	try {
 		const settings = (await invoke("load_settings").catch(() => ({}))) as Record<string, any>;

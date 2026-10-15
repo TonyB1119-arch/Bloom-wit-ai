@@ -32,6 +32,8 @@ import { ShelfTypeIcon } from "./components/ShelfTypeIcon";
 import { WifiPanel } from "./components/WifiPanel";
 import { BluetoothPanel } from "./components/BluetoothPanel";
 import { AiPanel } from "./components/AiPanel";
+import { SystemPanel } from "./components/SystemPanel";
+import { WeatherPanel } from "./components/WeatherPanel";
 import type { ChatMessage } from "./lib/gemini";
 import {
 	Cpu,
@@ -61,8 +63,14 @@ import {
  *   Dragging files onto the notch also opens the shelf. Wheel/swipe switches
  *   between tool panels, including when a live activity occupies the pill.
  */
-type NotchPanel = "calendar" | "command-center" | "ai";
-const NOTCH_PANELS: readonly NotchPanel[] = ["calendar", "command-center", "ai"];
+type NotchPanel = "calendar" | "command-center" | "ai" | "system" | "weather";
+const NOTCH_PANELS: readonly NotchPanel[] = [
+	"calendar",
+	"command-center",
+	"ai",
+	"system",
+	"weather"
+];
 const asNotchPanel = (value: unknown): NotchPanel | null =>
 	NOTCH_PANELS.includes(value as NotchPanel) ? (value as NotchPanel) : null;
 
@@ -429,6 +437,8 @@ type BloomMode =
 	| "calendar"
 	| "command-center"
 	| "ai"
+	| "system"
+	| "weather"
 	| "announcement"
 	| "status"
 	| "shelf"
@@ -1433,6 +1443,8 @@ function App() {
 			prev === "music" ||
 			prev === "command-center" ||
 			prev === "ai" ||
+			prev === "system" ||
+			prev === "weather" ||
 			prev === "calendar" ||
 			prev === "status" ||
 			prev === "shelf" ||
@@ -1693,6 +1705,7 @@ function App() {
 	function panelAvailable(panel: NotchPanel) {
 		if (panel === "calendar") return settingsCalendarEnabled;
 		if (panel === "ai") return settingsAiEnabled;
+		if (panel === "weather") return settingsWeatherEnabled;
 		return true;
 	}
 
@@ -1964,6 +1977,14 @@ function App() {
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [settingsAiEnabled, bloomMode, isOpen]);
+
+	// Leave the weather panel if weather gets turned off in settings
+	useEffect(() => {
+		if (!settingsWeatherEnabled && bloomMode === "weather") {
+			setBloomMode(isOpen ? openingPanel() : collapsedMode);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [settingsWeatherEnabled, bloomMode, isOpen]);
 
 	// Reset bloom mode when calendar setting is disabled
 	useEffect(() => {
@@ -2523,6 +2544,8 @@ function App() {
 		if (bloomMode === "shelf") return 380;
 		if (bloomMode === "command-center" && isOpen) return 350;
 		if (bloomMode === "ai" && isOpen) return 400;
+		if (bloomMode === "system" && isOpen) return 360;
+		if (bloomMode === "weather" && isOpen) return 420;
 		if (bloomMode === "wifi" || bloomMode === "bluetooth") return 350;
 		if (showMusicOnStatusHover) {
 			return 170 + (settingsVisualizerEnabled ? 30 : 0);
@@ -2562,6 +2585,8 @@ function App() {
 		}
 		if (bloomMode === "command-center") return isOpen ? 230 : 36;
 		if (bloomMode === "ai") return isOpen ? 290 : 36;
+		if (bloomMode === "system") return isOpen ? 172 : 36;
+		if (bloomMode === "weather") return isOpen ? 218 : 36;
 		if (bloomMode === "wifi" || bloomMode === "bluetooth") return 300;
 		if (bloomMode === "status") return 36;
 		if (isMusicMode && isOpen) {
@@ -3603,6 +3628,44 @@ function App() {
 												setMessages={setAiMessages}
 												onPinChange={setNotchPinned}
 											/>
+										</motion.div>
+									)}
+								</AnimatePresence>
+
+								{/* System Panel: CPU, RAM and battery only */}
+								<AnimatePresence>
+									{bloomMode === "system" && (
+										<motion.div
+											key="system-panel"
+											className="panel-fade"
+											initial={{ opacity: 0 }}
+											animate={{ opacity: 1 }}
+											exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.1 } }}
+											transition={{ type: "spring", stiffness: 400, damping: 30 }}
+										>
+											<SystemPanel
+												cpu={cpuUsage}
+												ram={ramUsage}
+												battery={batteryLevel}
+												charging={isCharging}
+												lowBatteryThreshold={lowBatteryThreshold}
+											/>
+										</motion.div>
+									)}
+								</AnimatePresence>
+
+								{/* Weather Panel: location, current conditions, 5-day forecast */}
+								<AnimatePresence>
+									{bloomMode === "weather" && settingsWeatherEnabled && (
+										<motion.div
+											key="weather-panel"
+											className="panel-fade"
+											initial={{ opacity: 0 }}
+											animate={{ opacity: 1 }}
+											exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.1 } }}
+											transition={{ type: "spring", stiffness: 400, damping: 30 }}
+										>
+											<WeatherPanel tempUnit={tempUnit} />
 										</motion.div>
 									)}
 								</AnimatePresence>

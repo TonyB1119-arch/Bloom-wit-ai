@@ -61,6 +61,8 @@ interface DockTabProps {
 	toggleDockIconOnly: () => void;
 	dockSeparatorEnabled: boolean;
 	toggleDockSeparator: () => void;
+	dockShowTrayApps: boolean;
+	toggleDockShowTrayApps: () => void;
 	dockAdaptive: boolean;
 	toggleDockAdaptive: () => void;
 	dockWinNumberEnabled: boolean;
@@ -97,6 +99,8 @@ export function DockTab({
 	toggleDockIconOnly,
 	dockSeparatorEnabled,
 	toggleDockSeparator,
+	dockShowTrayApps,
+	toggleDockShowTrayApps,
 	dockAdaptive,
 	toggleDockAdaptive,
 	dockWinNumberEnabled,
@@ -211,6 +215,17 @@ export function DockTab({
 								onChange={(e) => handleDockMagnificationChange(parseInt(e.target.value) / 100)}
 								className="settings-slider"
 							/>
+						</SettingRow>
+
+						<SettingRow
+							icon={LayoutPanelLeft}
+							label="Show Tray Apps"
+							desc="Show background apps that only live in the system tray as dock icons"
+						>
+							<label className="toggle-switch">
+								<input type="checkbox" checked={dockShowTrayApps} onChange={toggleDockShowTrayApps} />
+								<span className="slider"></span>
+							</label>
 						</SettingRow>
 
 						<SettingRow icon={Eye} label="Show App Previews" desc="Show window thumbnails on hover">

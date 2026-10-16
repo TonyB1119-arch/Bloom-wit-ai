@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { Send, Eraser, KeyRound } from "lucide-react";
-import { askGemini } from "../lib/gemini";
+import { askGemini, GEMINI_LABEL } from "../lib/gemini";
 import type { ChatMessage } from "../lib/gemini";
 
 interface AiPanelProps {
@@ -16,6 +16,7 @@ export function AiPanel({ apiKey, messages, setMessages, onPinChange }: AiPanelP
 	const [input, setInput] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [modelUsed, setModelUsed] = useState<string | null>(null);
 	const listRef = useRef<HTMLDivElement>(null);
 	const abortRef = useRef<AbortController | null>(null);
 
@@ -45,7 +46,8 @@ export function AiPanel({ apiKey, messages, setMessages, onPinChange }: AiPanelP
 		abortRef.current = controller;
 		try {
 			const reply = await askGemini(apiKey, next, controller.signal);
-			setMessages((prev) => [...prev, { role: "model", text: reply }]);
+			setModelUsed(reply.model);
+			setMessages((prev) => [...prev, { role: "model", text: reply.text }]);
 		} catch (err) {
 			if ((err as Error)?.name !== "AbortError") {
 				setError((err as Error).message || "Something went wrong.");
@@ -60,6 +62,7 @@ export function AiPanel({ apiKey, messages, setMessages, onPinChange }: AiPanelP
 		setMessages([]);
 		setError(null);
 		setBusy(false);
+		setModelUsed(null);
 	};
 
 	return (
@@ -83,13 +86,14 @@ export function AiPanel({ apiKey, messages, setMessages, onPinChange }: AiPanelP
 				)}
 				{busy && <div className="ai-msg model ai-thinking">Thinking…</div>}
 				{error && <div className="ai-error">{error}</div>}
+				{modelUsed && !busy && <div className="ai-model">Answered by {modelUsed}</div>}
 			</div>
 			<div className="ai-input-row">
 				<input
 					className="ai-input"
 					type="text"
 					value={input}
-					placeholder={hasKey ? "Message Gemini" : "API key required"}
+					placeholder={hasKey ? `Message ${GEMINI_LABEL}` : "API key required"}
 					disabled={!hasKey}
 					spellCheck={false}
 					onChange={(e) => setInput(e.target.value)}

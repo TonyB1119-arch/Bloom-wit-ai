@@ -129,7 +129,7 @@ export function AppearanceTab({
 
 			<div className="setting-group-label">Display</div>
 			<div className="setting-group">
-				<SettingRow icon={Square} label="Screen Corners" desc="Rounded top edges">
+				<SettingRow icon={Square} label="Screen Corners" desc="Rounded corners on all four screen edges">
 					<label className="toggle-switch">
 						<input type="checkbox" checked={cornersEnabled} onChange={toggleCorners} />
 						<span className="slider"></span>

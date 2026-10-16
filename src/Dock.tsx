@@ -198,6 +198,12 @@ const Dock = memo(function Dock() {
 	// Global UI scale times the dock's own size setting.
 	const scale = baseScale * dockSize;
 	const magnifying = dockMagnification > 1.001;
+	const [cornersEnabled, setCornersEnabled] = useState(
+		() => localStorage.getItem("bloom-corners-enabled") === "true"
+	);
+	const [showTrayApps, setShowTrayApps] = useState(
+		() => localStorage.getItem("bloom-dock-show-tray-apps") !== "false"
+	);
 	const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
 
 	useEffect(() => {
@@ -361,6 +367,8 @@ const Dock = memo(function Dock() {
 			if (Number.isFinite(sizeVal) && sizeVal > 0) setDockSize(sizeVal);
 			const magVal = parseFloat(getVal("bloom-dock-magnification", "1.0") || "1");
 			if (Number.isFinite(magVal) && magVal >= 1) setDockMagnification(magVal);
+			setCornersEnabled(getVal("bloom-corners-enabled", "false") === "true");
+			setShowTrayApps(getVal("bloom-dock-show-tray-apps", "true") !== "false");
 
 			const pinned = await invoke<AppInfo[]>("load_pinned_apps");
 			setPinnedApps(pinned.map((a) => ({ ...a, is_pinned: true })));
@@ -429,6 +437,8 @@ const Dock = memo(function Dock() {
 		"bloom-dock-adaptive": setDockAdaptive,
 		"bloom-start-icon": setStartIcon,
 		"bloom-scale": setScale,
+		"bloom-corners-enabled": (v) => setCornersEnabled(String(v) === "true"),
+		"bloom-dock-show-tray-apps": (v) => setShowTrayApps(String(v) !== "false"),
 		"bloom-dock-size": (v) => setDockSize(Number(v) > 0 ? Number(v) : 1),
 		"bloom-dock-magnification": (v) => setDockMagnification(Number(v) >= 1 ? Number(v) : 1),
 		"bloom-dock-extras-position": setDockExtrasPosition,
@@ -492,7 +502,8 @@ const Dock = memo(function Dock() {
 				)
 			);
 			observedTrayPathsRef.current = selected.observed;
-			const running = mergeTrayApps(windows, selected.visible);
+			// Tray-only background apps are skipped when the user turns them off.
+			const running = mergeTrayApps(windows, showTrayApps ? selected.visible : []);
 			setActiveApps(running);
 
 			setActiveOrder((prev) => {
@@ -519,7 +530,7 @@ const Dock = memo(function Dock() {
 			clearInterval(interval);
 			unlistenWindowChange.then((f) => f());
 		};
-	}, [isDragging, pinnedApps]);
+	}, [isDragging, pinnedApps, showTrayApps]);
 
 	const fetchIcon = async (path: string, name?: string, hwnd?: number, retryCount = 0) => {
 		const isHost = isBrowserHost(path);
@@ -1160,6 +1171,13 @@ const Dock = memo(function Dock() {
 
 	return (
 		<div className={`dock-container ${isDragging ? "dragging" : ""}`} onClick={closeMenu}>
+			{/* Bottom screen corners (the notch window draws the top two) */}
+			{cornersEnabled && isVisible && (
+				<>
+					<div className="dock-screen-corner bottom-left" />
+					<div className="dock-screen-corner bottom-right" />
+				</>
+			)}
 			<div
 				style={{
 					width: "100%",

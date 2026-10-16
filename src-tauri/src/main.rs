@@ -394,10 +394,14 @@ fn main() {
                         "quit" => {
                             SHUTTING_DOWN.store(true, Ordering::Relaxed);
                             if let Some(w) = ah.get_webview_window("main") {
-                                unregister_appbar_native(w.hwnd().unwrap());
+                                if let Ok(h) = w.hwnd() {
+ unregister_appbar_native(h);
+ }
                             }
                             if let Some(w) = ah.get_webview_window("dock") {
-                                unregister_appbar_native(w.hwnd().unwrap());
+                                if let Ok(h) = w.hwnd() {
+ unregister_appbar_native(h);
+ }
                             }
                             set_taskbar_visibility(true, true);
                             NATIVE_TASKBAR_HIDDEN.store(false, Ordering::Relaxed);
@@ -408,10 +412,14 @@ fn main() {
                         "restart" => {
                             SHUTTING_DOWN.store(true, Ordering::Relaxed);
                             if let Some(w) = ah.get_webview_window("main") {
-                                unregister_appbar_native(w.hwnd().unwrap());
+                                if let Ok(h) = w.hwnd() {
+ unregister_appbar_native(h);
+ }
                             }
                             if let Some(w) = ah.get_webview_window("dock") {
-                                unregister_appbar_native(w.hwnd().unwrap());
+                                if let Ok(h) = w.hwnd() {
+ unregister_appbar_native(h);
+ }
                             }
                             if let Some(w) = ah.get_webview_window("settings") {
                                 let _ = w.destroy();

@@ -2761,14 +2761,21 @@ unsafe extern "system" fn mouse_hook_proc(
                 if let Ok(Some(monitor)) = app_handle.primary_monitor() {
                     let pos = *monitor.position();
                     let size = *monitor.size();
-                    *MH_CACHED_MON_POS.lock().unwrap() = Some((pos.x, pos.y));
-                    *MH_CACHED_MON_SIZE.lock().unwrap() = Some((size.width, size.height));
+                    *MH_CACHED_MON_POS.lock().unwrap_or_else(|e| e.into_inner()) = Some((pos.x, pos.y));
+                    *MH_CACHED_MON_SIZE.lock().unwrap_or_else(|e| e.into_inner()) =
+                        Some((size.width, size.height));
                     MH_LAST_MONITOR_UPDATE_MS.store(now, Ordering::Relaxed);
                 }
             }
 
-            let cached_pos = MH_CACHED_MON_POS.lock().unwrap().unwrap_or((0, 0));
-            let cached_size = MH_CACHED_MON_SIZE.lock().unwrap().unwrap_or((1920, 1080));
+            let cached_pos = MH_CACHED_MON_POS
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .unwrap_or((0, 0));
+            let cached_size = MH_CACHED_MON_SIZE
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .unwrap_or((1920, 1080));
             let mon_x = cached_pos.0;
             let mon_y = cached_pos.1;
             let mon_w = cached_size.0 as i32;
@@ -3174,7 +3181,10 @@ fn collect_shortcuts(dir: &std::path::Path, apps: &mut Vec<AppInfo>, depth: i32)
                 .extension()
                 .is_some_and(|e| e.eq_ignore_ascii_case("lnk"))
             {
-                let name = path.file_stem().unwrap().to_string_lossy().to_string();
+                let name = path
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_default();
                 if is_helper_name(&name) || name.starts_with("Install") {
                     continue;
                 }
@@ -3238,7 +3248,9 @@ pub fn register_appbar(window: tauri::WebviewWindow) {
     if let Ok(Some(monitor)) = window.app_handle().primary_monitor() {
         let m_size = monitor.size();
         let m_pos = monitor.position();
-        let hwnd = window.hwnd().unwrap();
+        let Ok(hwnd) = window.hwnd() else {
+            return;
+        };
         let scale = monitor.scale_factor();
         let bloom_scale = crate::utils::get_bloom_scale(window.app_handle());
         let ph = ((420.0 * bloom_scale) * scale) as i32;
@@ -3420,7 +3432,9 @@ fn register_dock_appbar_inner(window: tauri::WebviewWindow, attempt: i32) {
     if let Ok(Some(monitor)) = window.app_handle().primary_monitor() {
         let m_size = monitor.size();
         let m_pos = monitor.position();
-        let hwnd = window.hwnd().unwrap();
+        let Ok(hwnd) = window.hwnd() else {
+            return;
+        };
         let scale = monitor.scale_factor();
         let bloom_scale = crate::utils::get_bloom_scale(window.app_handle());
 

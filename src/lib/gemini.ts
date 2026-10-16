@@ -2,12 +2,15 @@
 // The key lives in settings (bloom-ai-api-key) and is sent straight to Google.
 
 export const GEMINI_MODEL = "gemini-3.5-flash-lite";
+export const GEMINI_LABEL = "Gemini 3.5 Flash-Lite";
 
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-// The notch is tiny, so keep answers short and plain.
+// The notch is tiny, so keep answers short and plain. The identity line stops
+// the model from guessing an older version name when asked what it is.
 const SYSTEM_PROMPT =
-	"You are Bloom, a concise assistant living in a small desktop notch on Windows. " +
+	`You are Bloom, a concise assistant living in a small desktop notch on Windows, powered by Google's ${GEMINI_LABEL} model. ` +
+	`If asked which model or version you are, say you are ${GEMINI_LABEL}. ` +
 	"Answer in a few short sentences. Use plain text only (no markdown, no headings). " +
 	"Be friendly, clear and professional.";
 
@@ -19,11 +22,17 @@ export interface ChatMessage {
 	text: string;
 }
 
+export interface GeminiReply {
+	text: string;
+	/** The model name Google reports it actually used for this response. */
+	model: string;
+}
+
 export async function askGemini(
 	apiKey: string,
 	history: ChatMessage[],
 	signal?: AbortSignal
-): Promise<string> {
+): Promise<GeminiReply> {
 	const key = apiKey.trim();
 	if (!key) throw new Error("Add your Gemini API key in Settings → Notch.");
 
@@ -71,5 +80,8 @@ export async function askGemini(
 		.map((p: { text?: string }) => p.text ?? "")
 		.join("")
 		.trim();
-	return text || "I didn't get a response. Try rephrasing.";
+	return {
+		text: text || "I didn't get a response. Try rephrasing.",
+		model: typeof data?.modelVersion === "string" && data.modelVersion ? data.modelVersion : GEMINI_MODEL
+	};
 }

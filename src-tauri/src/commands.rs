@@ -1713,7 +1713,7 @@ pub async fn get_app_icon(
             }
 
             if let Some(ref base64) = icon_data {
-                if let Ok(mut lock) = ICON_CACHE.get().unwrap().lock() {
+                if let Some(Ok(mut lock)) = ICON_CACHE.get().map(|c| c.lock()) {
                     lock.insert(ck_clone, base64.clone());
                 }
             }
@@ -2850,12 +2850,16 @@ pub fn clear_volume_mixer_rect() {
 pub fn release_appbars(handle: &AppHandle) {
     if let Some(w) = handle.get_webview_window("main") {
         if MAIN_APPBAR_REGISTERED.load(Ordering::Relaxed) {
-            unregister_appbar_native(w.hwnd().unwrap());
+            if let Ok(h) = w.hwnd() {
+ unregister_appbar_native(h);
+ }
         }
     }
     if let Some(w) = handle.get_webview_window("dock") {
         if DOCK_APPBAR_REGISTERED.load(Ordering::Relaxed) {
-            unregister_appbar_native(w.hwnd().unwrap());
+            if let Ok(h) = w.hwnd() {
+ unregister_appbar_native(h);
+ }
         }
     }
 }
@@ -2887,10 +2891,14 @@ pub async fn quit_bloom(handle: AppHandle) {
 pub async fn restart_bloom(handle: AppHandle) {
     SHUTTING_DOWN.store(true, Ordering::Relaxed);
     if let Some(w) = handle.get_webview_window("main") {
-        unregister_appbar_native(w.hwnd().unwrap());
+        if let Ok(h) = w.hwnd() {
+ unregister_appbar_native(h);
+ }
     }
     if let Some(w) = handle.get_webview_window("dock") {
-        unregister_appbar_native(w.hwnd().unwrap());
+        if let Ok(h) = w.hwnd() {
+ unregister_appbar_native(h);
+ }
     }
     if let Some(w) = handle.get_webview_window("settings") {
         let _ = w.destroy();

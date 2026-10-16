@@ -2771,3 +2771,9 @@ img {
 .power-pulse-content.charging > div:first-child {
 	animation: bat-ring 1.6s ease-out infinite;
 }
+
+.ai-model {
+	align-self: center;
+	font-size: 9px;
+	color: var(--bloom-text-muted, rgba(255, 255, 255, 0.4));
+}

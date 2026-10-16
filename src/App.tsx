@@ -198,11 +198,14 @@ function TrayIcon() {
 function BatteryIcon({
 	charging,
 	level,
-	threshold = 20
+	threshold = 20,
+	animated = false
 }: {
 	charging: boolean;
 	level: number;
 	threshold?: number;
+	/** Only the connect/low-battery alert animates, so idle widgets cost no repaints. */
+	animated?: boolean;
 }) {
 	const percentage = Math.min(Math.max(level, 0), 100);
 
@@ -244,13 +247,21 @@ function BatteryIcon({
 					height="5"
 					rx="1"
 					fill={charging ? "#32D74B" : percentage <= threshold ? "#FF453A" : "white"}
-					className={charging ? "bat-fill-charging" : percentage <= threshold ? "bat-fill-low" : undefined}
+					className={
+						animated
+							? charging
+								? "bat-fill-charging"
+								: percentage <= threshold
+									? "bat-fill-low"
+									: undefined
+							: undefined
+					}
 				/>
 			</svg>
 			{/* Charging Bolt - Centered on the battery body */}
 			{charging && (
 				<div
-					className="bat-bolt"
+					className={animated ? "bat-bolt" : undefined}
 					style={{
 						position: "absolute",
 						top: "50%",
@@ -554,7 +565,7 @@ function App() {
 	useEffect(() => {
 		if (isReady && prevChargingRef.current !== null && prevChargingRef.current !== isCharging) {
 			setShowPowerPulse(true);
-			if (notchMode === "peek") triggerEventPeek(4000);
+			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(4000);
 			if (powerPulseTimeoutRef.current) clearTimeout(powerPulseTimeoutRef.current);
 			powerPulseTimeoutRef.current = setTimeout(() => {
 				setShowPowerPulse(false);
@@ -572,7 +583,7 @@ function App() {
 			!lowBatteryPulseShownRef.current
 		) {
 			setShowLowBatteryPulse(true);
-			if (notchMode === "peek") triggerEventPeek(5000);
+			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(5000);
 			lowBatteryPulseShownRef.current = true;
 			if (lowPulseTimerRef.current) clearTimeout(lowPulseTimerRef.current);
 			lowPulseTimerRef.current = setTimeout(() => setShowLowBatteryPulse(false), 5000);
@@ -592,7 +603,7 @@ function App() {
 			criticalShownRef.current = true;
 			setBatteryCritical(true);
 			setShowLowBatteryPulse(true);
-			if (notchMode === "peek") triggerEventPeek(8000);
+			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(8000);
 			if (lowPulseTimerRef.current) clearTimeout(lowPulseTimerRef.current);
 			lowPulseTimerRef.current = setTimeout(() => {
 				setShowLowBatteryPulse(false);
@@ -610,7 +621,7 @@ function App() {
 		if (isReady && isCharging && batteryLevel >= 100 && !fullyChargedShownRef.current) {
 			fullyChargedShownRef.current = true;
 			setShowPowerPulse(true);
-			if (notchMode === "peek") triggerEventPeek(4000);
+			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(4000);
 			if (powerPulseTimeoutRef.current) clearTimeout(powerPulseTimeoutRef.current);
 			powerPulseTimeoutRef.current = setTimeout(() => setShowPowerPulse(false), 4000);
 		}
@@ -681,7 +692,7 @@ function App() {
 				return;
 			}
 			setShowUpdatePulse(true);
-			if (notchMode === "peek") triggerEventPeek(6000);
+			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(6000);
 			if (updatePulseTimerRef.current) clearTimeout(updatePulseTimerRef.current);
 			updatePulseTimerRef.current = setTimeout(() => {
 				setShowUpdatePulse(false);
@@ -747,7 +758,7 @@ function App() {
 	const isAnyInteraction = isHovered || isNotchHovered || isEdgeHovered;
 	const isHidden =
 		!startupAnimating &&
-		((notchMode === "smart" && isOverlapped && interactionState === "none") ||
+		((notchMode === "smart" && isOverlapped && interactionState === "none" && !eventPeek) ||
 			(notchMode === "peek" && interactionState === "none" && !eventPeek));
 
 	useEffect(() => {
@@ -1707,7 +1718,7 @@ function App() {
 		if (announcementShownRef.current === announcement.id) return;
 		announcementShownRef.current = announcement.id;
 		setBloomMode("announcement");
-		if (notchMode === "peek") triggerEventPeek(6000);
+		if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(6000);
 	}, [announcement, announcementDismissed, notchMode, triggerEventPeek]);
 
 	// Leave the announcement view once it is dismissed (or gone).
@@ -1925,7 +1936,7 @@ function App() {
 	useEffect(() => {
 		if (isTimerFinished && !prevTimerFinishedRef.current) {
 			if (settingsTimerSoundEnabled) playTimerChime();
-			if (notchMode === "peek") triggerEventPeek(6000);
+			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(6000);
 		}
 		prevTimerFinishedRef.current = isTimerFinished;
 	}, [isTimerFinished, settingsTimerSoundEnabled, notchMode, triggerEventPeek]);
@@ -2065,11 +2076,19 @@ function App() {
 		};
 
 		updateTime();
-		const interval = setInterval(updateTime, 1000);
-
-		return () => {
-			clearInterval(interval);
+		// The clock only shows hours and minutes, so wake once per minute.
+		let timer: ReturnType<typeof setTimeout>;
+		const schedule = () => {
+			const now = new Date();
+			const wait = 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()) + 50;
+			timer = setTimeout(() => {
+				updateTime();
+				schedule();
+			}, wait);
 		};
+		schedule();
+
+		return () => clearTimeout(timer);
 	}, [timeFormat24h]);
 
 	// Battery API
@@ -2206,7 +2225,7 @@ function App() {
 			invoke<boolean>("get_battery_saver_state")
 				.then(setBatterySaverEnabled)
 				.catch(() => {});
-		}, 5000);
+		}, 15000);
 		return () => clearInterval(interval);
 	}, []);
 
@@ -2218,6 +2237,22 @@ function App() {
 		const interval = setInterval(() => void refreshWifiStatus(), 5000);
 		return () => clearInterval(interval);
 	}, [bloomMode, refreshWifiStatus]);
+
+	// Re-check battery saver whenever the command center opens.
+	useEffect(() => {
+		if (bloomMode !== "command-center") return;
+		invoke<boolean>("get_battery_saver_state")
+			.then(setBatterySaverEnabled)
+			.catch(() => {});
+	}, [bloomMode]);
+
+	// Metrics are only worth polling while the notch is hovered/open or a
+	// widget that is always visible needs them. Idle, nothing runs.
+	const needMetrics =
+		isHovered ||
+		isOpen ||
+		bloomMode === "system" ||
+		statusWidgets.right.some((w: string) => w !== "battery");
 
 	// Poll system metrics for status widgets
 	useEffect(() => {
@@ -2238,10 +2273,11 @@ function App() {
 				})
 				.catch(() => {});
 		};
+		if (!needMetrics) return;
 		fetchMetrics();
 		const interval = setInterval(fetchMetrics, 3000);
 		return () => clearInterval(interval);
-	}, []);
+	}, [needMetrics]);
 
 	// Listen for brightness changes
 	useEffect(() => {
@@ -3087,6 +3123,7 @@ function App() {
 															>
 																{updateAvailable && <GreenDownArrowIcon />}
 																<BatteryIcon
+																animated
 																	charging={isCharging}
 																	level={batteryLevel}
 																	threshold={lowBatteryThreshold}

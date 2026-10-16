@@ -87,6 +87,9 @@ export function useSettings() {
 	const [dockIconOnly, setDockIconOnly] = useState(
 		() => localStorage.getItem("bloom-dock-icon-only") === "true"
 	);
+	const [dockShowTrayApps, setDockShowTrayApps] = useState(
+		() => localStorage.getItem("bloom-dock-show-tray-apps") !== "false"
+	);
 	const [dockSeparatorEnabled, setDockSeparatorEnabled] = useState(
 		() => localStorage.getItem("bloom-dock-separator-enabled") !== "false"
 	);
@@ -219,6 +222,7 @@ export function useSettings() {
 			apply(getVal("bloom-dock-preview-enabled"), setDockPreviewEnabled, readBool);
 			apply(getVal("bloom-dock-icon-only"), setDockIconOnly, readBool);
 			apply(getVal("bloom-dock-separator-enabled"), setDockSeparatorEnabled, readBool);
+			apply(getVal("bloom-dock-show-tray-apps"), setDockShowTrayApps, readBool);
 			apply(getVal("bloom-start-icon"), setStartIcon, (v) => v);
 			apply(getVal("bloom-dock-adaptive"), setDockAdaptive, readBool);
 			apply(getVal("bloom-dock-win-number-enabled"), setDockWinNumberEnabled, readBool);
@@ -288,6 +292,7 @@ export function useSettings() {
 		"bloom-dock-enabled": setDockEnabled,
 		"bloom-dock-icon-only": setDockIconOnly,
 		"bloom-dock-separator-enabled": setDockSeparatorEnabled,
+		"bloom-dock-show-tray-apps": setDockShowTrayApps,
 		"bloom-start-icon": setStartIcon,
 		"bloom-dock-preview-enabled": setDockPreviewEnabled,
 		"bloom-dock-adaptive": setDockAdaptive,
@@ -591,6 +596,12 @@ export function useSettings() {
 		const next = !dockIconOnly;
 		setDockIconOnly(next);
 		saveSetting("bloom-dock-icon-only", String(next));
+	};
+
+	const toggleDockShowTrayApps = () => {
+		const next = !dockShowTrayApps;
+		setDockShowTrayApps(next);
+		saveSetting("bloom-dock-show-tray-apps", String(next));
 	};
 
 	const toggleDockSeparator = () => {
@@ -980,6 +991,8 @@ export function useSettings() {
 		toggleDockIconOnly,
 		dockSeparatorEnabled,
 		toggleDockSeparator,
+		dockShowTrayApps,
+		toggleDockShowTrayApps,
 		startIcon,
 		handleStartIconChange,
 		dockAdaptive,

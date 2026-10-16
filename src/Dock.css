@@ -783,3 +783,12 @@ body {
 	background: #888;
 	box-shadow: none;
 }
+
+/* Magnification: smooth the per-icon scale/translate set from Dock.tsx */
+.dock-magnify .dock-icon {
+	transition:
+		opacity 0.2s ease,
+		scale 0.12s ease-out,
+		translate 0.12s ease-out;
+	will-change: scale, translate;
+}

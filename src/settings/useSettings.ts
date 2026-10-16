@@ -124,6 +124,14 @@ export function useSettings() {
 		const val = localStorage.getItem("bloom-dock-edge-delay");
 		return val !== null ? parseInt(val) : 200;
 	});
+	const [dockSize, setDockSize] = useState(() => {
+		const v = parseFloat(localStorage.getItem("bloom-dock-size") || "1.0");
+		return Number.isFinite(v) && v > 0 ? v : 1;
+	});
+	const [dockMagnification, setDockMagnification] = useState(() => {
+		const v = parseFloat(localStorage.getItem("bloom-dock-magnification") || "1.0");
+		return Number.isFinite(v) && v >= 1 ? v : 1;
+	});
 	const [notchMode, setNotchMode] = useState("fixed");
 	const [notchEdgeDelay, setNotchEdgeDelay] = useState(() => {
 		const val = localStorage.getItem("bloom-notch-edge-delay");
@@ -228,6 +236,8 @@ export function useSettings() {
 			apply(getVal("bloom-notch-edge-delay"), setNotchEdgeDelay, parseInt);
 			apply(getVal("bloom-dock-mode"), setDockMode, (v) => (v === "auto-hide" ? "smart" : v));
 			apply(getVal("bloom-dock-edge-delay"), setDockEdgeDelay, parseInt);
+			apply(getVal("bloom-dock-size"), setDockSize, parseFloat);
+			apply(getVal("bloom-dock-magnification"), setDockMagnification, parseFloat);
 
 			const savedCity = getVal("bloom-weather-city");
 			if (savedCity) setCityName(savedCity);
@@ -271,6 +281,8 @@ export function useSettings() {
 	useSettingsSync({
 		"bloom-dock-mode": setDockMode,
 		"bloom-dock-edge-delay": setDockEdgeDelay,
+		"bloom-dock-size": (v) => setDockSize(Number(v) > 0 ? Number(v) : 1),
+		"bloom-dock-magnification": (v) => setDockMagnification(Number(v) >= 1 ? Number(v) : 1),
 		"bloom-notch-mode": setNotchMode,
 		"bloom-notch-edge-delay": setNotchEdgeDelay,
 		"bloom-dock-enabled": setDockEnabled,
@@ -668,6 +680,16 @@ export function useSettings() {
 		saveSetting("bloom-notch-mode", newMode);
 	};
 
+	const handleDockSizeChange = (val: number) => {
+		setDockSize(val);
+		saveSetting("bloom-dock-size", val.toFixed(2));
+	};
+
+	const handleDockMagnificationChange = (val: number) => {
+		setDockMagnification(val);
+		saveSetting("bloom-dock-magnification", val.toFixed(2));
+	};
+
 	const handleDockEdgeDelayChange = (val: number) => {
 		setDockEdgeDelay(val);
 		saveSetting("bloom-dock-edge-delay", val.toString());
@@ -948,6 +970,10 @@ export function useSettings() {
 		setDockModeValue,
 		dockEdgeDelay,
 		handleDockEdgeDelayChange,
+		dockSize,
+		handleDockSizeChange,
+		dockMagnification,
+		handleDockMagnificationChange,
 		dockPreviewEnabled,
 		toggleDockPreview,
 		dockIconOnly,

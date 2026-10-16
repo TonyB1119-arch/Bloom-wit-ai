@@ -244,11 +244,13 @@ function BatteryIcon({
 					height="5"
 					rx="1"
 					fill={charging ? "#32D74B" : percentage <= threshold ? "#FF453A" : "white"}
+					className={charging ? "bat-fill-charging" : percentage <= threshold ? "bat-fill-low" : undefined}
 				/>
 			</svg>
 			{/* Charging Bolt - Centered on the battery body */}
 			{charging && (
 				<div
+					className="bat-bolt"
 					style={{
 						position: "absolute",
 						top: "50%",
@@ -523,6 +525,10 @@ function App() {
 	const [isCharging, setIsCharging] = useState(false);
 	const [showPowerPulse, setShowPowerPulse] = useState(false);
 	const [showLowBatteryPulse, setShowLowBatteryPulse] = useState(false);
+	const [batteryCritical, setBatteryCritical] = useState(false);
+	const lowPulseTimerRef = useRef<any>(null);
+	const criticalShownRef = useRef(false);
+	const fullyChargedShownRef = useRef(false);
 	const [lowBatteryThreshold, setLowBatteryThreshold] = useState(() =>
 		parseInt(localStorage.getItem("bloom-low-battery-threshold") || "20")
 	);
@@ -568,7 +574,8 @@ function App() {
 			setShowLowBatteryPulse(true);
 			if (notchMode === "peek") triggerEventPeek(5000);
 			lowBatteryPulseShownRef.current = true;
-			setTimeout(() => setShowLowBatteryPulse(false), 5000);
+			if (lowPulseTimerRef.current) clearTimeout(lowPulseTimerRef.current);
+			lowPulseTimerRef.current = setTimeout(() => setShowLowBatteryPulse(false), 5000);
 		}
 
 		// Reset the "shown" state if battery is charged or threshold is lowered
@@ -576,6 +583,39 @@ function App() {
 			lowBatteryPulseShownRef.current = false;
 		}
 	}, [batteryLevel, isCharging, lowBatteryThreshold, isReady, notchMode, triggerEventPeek]);
+
+	// Second, louder alert when the battery gets critically low (half the
+	// low-battery threshold, never below 5%). Fires once per discharge cycle.
+	useEffect(() => {
+		const criticalThreshold = Math.max(5, Math.floor(lowBatteryThreshold / 2));
+		if (isReady && !isCharging && batteryLevel <= criticalThreshold && !criticalShownRef.current) {
+			criticalShownRef.current = true;
+			setBatteryCritical(true);
+			setShowLowBatteryPulse(true);
+			if (notchMode === "peek") triggerEventPeek(8000);
+			if (lowPulseTimerRef.current) clearTimeout(lowPulseTimerRef.current);
+			lowPulseTimerRef.current = setTimeout(() => {
+				setShowLowBatteryPulse(false);
+				setBatteryCritical(false);
+			}, 8000);
+		}
+		if (isCharging || batteryLevel > criticalThreshold) {
+			criticalShownRef.current = false;
+			if (isCharging) setBatteryCritical(false);
+		}
+	}, [batteryLevel, isCharging, lowBatteryThreshold, isReady, notchMode, triggerEventPeek]);
+
+	// Let the user know when the battery has finished charging.
+	useEffect(() => {
+		if (isReady && isCharging && batteryLevel >= 100 && !fullyChargedShownRef.current) {
+			fullyChargedShownRef.current = true;
+			setShowPowerPulse(true);
+			if (notchMode === "peek") triggerEventPeek(4000);
+			if (powerPulseTimeoutRef.current) clearTimeout(powerPulseTimeoutRef.current);
+			powerPulseTimeoutRef.current = setTimeout(() => setShowPowerPulse(false), 4000);
+		}
+		if (!isCharging || batteryLevel < 100) fullyChargedShownRef.current = false;
+	}, [batteryLevel, isCharging, isReady, notchMode, triggerEventPeek]);
 
 	// Weather state (managed by useWeather hook)
 
@@ -3043,7 +3083,7 @@ function App() {
 																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
 																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
 																exit={{ opacity: 0, scale: 1.05, filter: "blur(4px)" }}
-																className="power-pulse-content"
+																className={`power-pulse-content ${batteryCritical ? "critical" : ""} ${isCharging && !showLowBatteryPulse ? "charging" : ""}`}
 															>
 																{updateAvailable && <GreenDownArrowIcon />}
 																<BatteryIcon
@@ -3056,10 +3096,7 @@ function App() {
 																	style={{ color: showLowBatteryPulse ? "#FF453A" : "inherit" }}
 																>
 																	{showLowBatteryPulse
-																		? "Low Battery"
-																		: isCharging
-																			? "Charging"
-																			: "On Battery"}{" "}
+																		? (batteryCritical ? "Battery Critical" : "Low Battery") : isCharging ? (batteryLevel >= 100 ? "Fully Charged" : "Charging") : "On Battery"}{" "}
 																	• {batteryLevel}%
 																</span>
 															</motion.div>

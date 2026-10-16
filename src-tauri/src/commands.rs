@@ -2961,7 +2961,7 @@ pub fn save_setting(app: AppHandle, key: String, value: serde_json::Value) -> Re
         serde_json::json!({ "key": &key, "value": &settings[&key] }),
     );
 
-    if key == "bloom-scale" {
+    if key == "bloom-scale" || key == "bloom-dock-size" {
         re_register_appbars(&app, &settings);
     }
     Ok(())
@@ -3591,7 +3591,7 @@ pub fn import_settings(app: AppHandle, settings: String) -> Result<(), String> {
         );
     }
 
-    if imported.get("bloom-scale").is_some() {
+    if imported.get("bloom-scale").is_some() || imported.get("bloom-dock-size").is_some() {
         re_register_appbars(&app, &imported);
     }
 

@@ -3438,7 +3438,12 @@ fn register_dock_appbar_inner(window: tauri::WebviewWindow, attempt: i32) {
             return;
         }
 
-        let pr = ((56.0 * bloom_scale) * scale) as i32;
+        // Dock size is a separate multiplier on top of the global UI scale.
+        let dock_size = crate::utils::get_setting_str(window.app_handle(), "bloom-dock-size")
+            .and_then(|s| s.parse::<f64>().ok())
+            .unwrap_or(1.0)
+            .clamp(0.6, 2.0);
+        let pr = ((56.0 * bloom_scale * dock_size) * scale) as i32;
 
         // Serialize with disable_dock_appbar, then check the setting again.
         // A pending registration must not outlive a dock-disable request.

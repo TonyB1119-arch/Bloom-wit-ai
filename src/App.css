@@ -2676,3 +2676,98 @@ img {
 	font-size: 11px;
 	color: var(--bloom-text-muted, rgba(255, 255, 255, 0.5));
 }
+
+/* ── Battery: charging animation and low-battery alerts ── */
+@keyframes bat-charge {
+	0%,
+	100% {
+		opacity: 0.6;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+@keyframes bat-bolt-glow {
+	0%,
+	100% {
+		transform: translate(-50%, -50%) scale(1);
+		filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.8));
+	}
+	50% {
+		transform: translate(-50%, -50%) scale(1.2);
+		filter: drop-shadow(0 0 4px rgba(50, 215, 75, 0.95));
+	}
+}
+
+@keyframes bat-low-blink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.25;
+	}
+}
+
+@keyframes bat-shake {
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+	20% {
+		transform: translateX(-3px);
+	}
+	40% {
+		transform: translateX(3px);
+	}
+	60% {
+		transform: translateX(-2px);
+	}
+	80% {
+		transform: translateX(2px);
+	}
+}
+
+@keyframes bat-ring {
+	0% {
+		box-shadow: 0 0 0 0 rgba(50, 215, 75, 0.35);
+	}
+	100% {
+		box-shadow: 0 0 0 14px rgba(50, 215, 75, 0);
+	}
+}
+
+.bat-fill-charging {
+	animation: bat-charge 1.6s ease-in-out infinite;
+}
+
+.bat-fill-low {
+	animation: bat-low-blink 1.2s ease-in-out infinite;
+}
+
+.bat-bolt {
+	animation: bat-bolt-glow 1.6s ease-in-out infinite;
+}
+
+.power-pulse-content.charging .label {
+	color: #32d74b;
+}
+
+.power-pulse-content.critical {
+	animation: bat-shake 0.5s ease-in-out 3;
+}
+
+.power-pulse-content.critical .label {
+	color: #ff453a;
+	letter-spacing: 0.2px;
+}
+
+.power-pulse-content.charging > div:first-child,
+.power-pulse-content.critical > div:first-child {
+	border-radius: 6px;
+}
+
+.power-pulse-content.charging > div:first-child {
+	animation: bat-ring 1.6s ease-out infinite;
+}

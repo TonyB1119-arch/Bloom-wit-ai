@@ -51,6 +51,10 @@ interface DockTabProps {
 	setDockModeValue: (mode: string) => void;
 	dockEdgeDelay: number;
 	handleDockEdgeDelayChange: (val: number) => void;
+	dockSize: number;
+	handleDockSizeChange: (val: number) => void;
+	dockMagnification: number;
+	handleDockMagnificationChange: (val: number) => void;
 	dockPreviewEnabled: boolean;
 	toggleDockPreview: () => void;
 	dockIconOnly: boolean;
@@ -83,6 +87,10 @@ export function DockTab({
 	setDockModeValue,
 	dockEdgeDelay,
 	handleDockEdgeDelayChange,
+	dockSize,
+	handleDockSizeChange,
+	dockMagnification,
+	handleDockMagnificationChange,
 	dockPreviewEnabled,
 	toggleDockPreview,
 	dockIconOnly,
@@ -168,6 +176,42 @@ export function DockTab({
 								/>
 							</SettingRow>
 						)}
+
+						<SettingRow
+							icon={Maximize2}
+							label="Dock Size"
+							desc={`Make the whole dock bigger or smaller (${Math.round(dockSize * 100)}%)`}
+						>
+							<input
+								type="range"
+								min="70"
+								max="150"
+								step="5"
+								value={Math.round(dockSize * 100)}
+								onChange={(e) => handleDockSizeChange(parseInt(e.target.value) / 100)}
+								className="settings-slider"
+							/>
+						</SettingRow>
+
+						<SettingRow
+							icon={Sparkles}
+							label="Magnification"
+							desc={
+								dockMagnification <= 1.001
+									? "Off. Drag right to make icons grow near your cursor"
+									: `Icons grow up to ${Math.round(dockMagnification * 100)}% near your cursor`
+							}
+						>
+							<input
+								type="range"
+								min="100"
+								max="180"
+								step="5"
+								value={Math.round(dockMagnification * 100)}
+								onChange={(e) => handleDockMagnificationChange(parseInt(e.target.value) / 100)}
+								className="settings-slider"
+							/>
+						</SettingRow>
 
 						<SettingRow icon={Eye} label="Show App Previews" desc="Show window thumbnails on hover">
 							<label className="toggle-switch">

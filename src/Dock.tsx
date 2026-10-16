@@ -184,9 +184,20 @@ const Dock = memo(function Dock() {
 	const [popupBottom, setPopupBottom] = useState(56);
 	const pinnedItemsRef = useRef<AppInfo[]>([]);
 	const handleAppClickRef = useRef<(app: AppInfo) => void>(() => {});
-	const [scale, setScale] = useState(() =>
+	const [dockSize, setDockSize] = useState(() => {
+		const v = parseFloat(localStorage.getItem("bloom-dock-size") || "1.0");
+		return Number.isFinite(v) && v > 0 ? v : 1;
+	});
+	const [dockMagnification, setDockMagnification] = useState(() => {
+		const v = parseFloat(localStorage.getItem("bloom-dock-magnification") || "1.0");
+		return Number.isFinite(v) && v >= 1 ? v : 1;
+	});
+	const [baseScale, setScale] = useState(() =>
 		parseFloat(localStorage.getItem("bloom-scale") || "1.0")
 	);
+	// Global UI scale times the dock's own size setting.
+	const scale = baseScale * dockSize;
+	const magnifying = dockMagnification > 1.001;
 	const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
 
 	useEffect(() => {
@@ -346,6 +357,11 @@ const Dock = memo(function Dock() {
 			const scaleVal = getVal("bloom-scale");
 			if (scaleVal !== null) setScale(parseFloat(scaleVal));
 
+			const sizeVal = parseFloat(getVal("bloom-dock-size", "1.0") || "1");
+			if (Number.isFinite(sizeVal) && sizeVal > 0) setDockSize(sizeVal);
+			const magVal = parseFloat(getVal("bloom-dock-magnification", "1.0") || "1");
+			if (Number.isFinite(magVal) && magVal >= 1) setDockMagnification(magVal);
+
 			const pinned = await invoke<AppInfo[]>("load_pinned_apps");
 			setPinnedApps(pinned.map((a) => ({ ...a, is_pinned: true })));
 			pinned.forEach((app) => fetchIcon(app.path));
@@ -413,6 +429,8 @@ const Dock = memo(function Dock() {
 		"bloom-dock-adaptive": setDockAdaptive,
 		"bloom-start-icon": setStartIcon,
 		"bloom-scale": setScale,
+		"bloom-dock-size": (v) => setDockSize(Number(v) > 0 ? Number(v) : 1),
+		"bloom-dock-magnification": (v) => setDockMagnification(Number(v) >= 1 ? Number(v) : 1),
 		"bloom-dock-extras-position": setDockExtrasPosition,
 		"bloom-dock-extras-drives": () => setDockExtrasRevision((r) => r + 1),
 		"bloom-dock-extras-recycle-bin": () => setDockExtrasRevision((r) => r + 1),
@@ -1008,9 +1026,94 @@ const Dock = memo(function Dock() {
 		};
 	}, [hoveredApp, isDragging, dockItems]);
 
+	// Magnification: icons grow toward the cursor and nudge their neighbours aside.
+	// Uses the CSS `scale`/`translate` properties, which compose with the
+	// transforms Framer Motion already applies to each icon.
+	useEffect(() => {
+		const el = dockRef.current;
+		if (!el || !magnifying) return;
+		let frame = 0;
+		let mouseX: number | null = null;
+
+		const reset = () => {
+			el.querySelectorAll<HTMLElement>(".dock-icon").forEach((icon) => {
+				icon.style.scale = "";
+				icon.style.translate = "";
+			});
+		};
+
+		const apply = () => {
+			frame = 0;
+			if (mouseX === null) return reset();
+			const icons = Array.from(el.querySelectorAll<HTMLElement>(".dock-icon"));
+			const radius = 110 * scale;
+			const items = icons
+				.map((icon) => {
+					const r = icon.getBoundingClientRect();
+					return { icon, cx: r.left + r.width / 2, w: r.width / (parseFloat(icon.style.scale) || 1) };
+				})
+				.sort((a, b) => a.cx - b.cx);
+			if (items.length === 0) return;
+
+			const scales = items.map((it) => {
+				const t = Math.max(0, 1 - Math.abs((mouseX as number) - it.cx) / radius);
+				return 1 + (dockMagnification - 1) * (t * t * (3 - 2 * t));
+			});
+			let nearest = 0;
+			items.forEach((it, i) => {
+				if (Math.abs(it.cx - (mouseX as number)) < Math.abs(items[nearest].cx - (mouseX as number))) {
+					nearest = i;
+				}
+			});
+
+			items.forEach((it, i) => {
+				const s = scales[i];
+				// Horizontal push: add up the extra width of icons between this one and the cursor.
+				let shift = 0;
+				if (i > nearest) {
+					for (let j = nearest; j <= i; j++) {
+						const extra = ((scales[j] - 1) * items[j].w) / 2;
+						shift += j === nearest || j === i ? extra : extra * 2;
+					}
+				} else if (i < nearest) {
+					for (let j = i; j <= nearest; j++) {
+						const extra = ((scales[j] - 1) * items[j].w) / 2;
+						shift -= j === nearest || j === i ? extra : extra * 2;
+					}
+				}
+				const lift = ((s - 1) * it.icon.offsetHeight) / 2;
+				it.icon.style.scale = s > 1.001 ? String(s) : "";
+				it.icon.style.translate =
+					s > 1.001 || Math.abs(shift) > 0.5 ? `${shift / scale}px ${-lift}px` : "";
+			});
+		};
+
+		const schedule = () => {
+			if (!frame) frame = requestAnimationFrame(apply);
+		};
+		const onMove = (e: PointerEvent) => {
+			if (el.closest(".dock-container.dragging")) return;
+			mouseX = e.clientX;
+			schedule();
+		};
+		const onLeave = () => {
+			mouseX = null;
+			schedule();
+		};
+
+		el.addEventListener("pointermove", onMove);
+		el.addEventListener("pointerleave", onLeave);
+		return () => {
+			el.removeEventListener("pointermove", onMove);
+			el.removeEventListener("pointerleave", onLeave);
+			if (frame) cancelAnimationFrame(frame);
+			reset();
+		};
+	}, [magnifying, dockMagnification, scale]);
+
 	const iconVariants = {
 		idle: { y: 0, scale: 1 },
-		hover: { y: -5, scale: 1.1 },
+		hover: { y: magnifying ? 0 : -5, scale: magnifying ? 1 : 1.1 },
 		drag: { y: -10, scale: 1.1, opacity: 0.8 },
 		tap: { scale: 0.95 }
 	};
@@ -1069,7 +1172,7 @@ const Dock = memo(function Dock() {
 				<motion.div
 					ref={dockRef}
 					layout
-					className={`dock ${isExpanded && !isHidden ? "dock-expanded" : ""} ${isImpacted && !isExpanded && !isHidden ? "dock-impacted" : ""} ${dockIconOnly ? "dock-icon-only" : ""} ${isAdaptive ? "dock-adaptive" : ""}`}
+					className={`dock ${isExpanded && !isHidden ? "dock-expanded" : ""} ${isImpacted && !isExpanded && !isHidden ? "dock-impacted" : ""} ${dockIconOnly ? "dock-icon-only" : ""} ${isAdaptive ? "dock-adaptive" : ""} ${magnifying ? "dock-magnify" : ""}`}
 					onMouseEnter={() => setIsDockHovered(true)}
 					onMouseLeave={() => {
 						setIsDockHovered(false);

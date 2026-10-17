@@ -2948,3 +2948,7 @@ img {
 .calc-key.eq:hover {
 	filter: brightness(1.12);
 }
+
+.bt-pop {
+	animation: lock-pop 0.5s ease;
+}

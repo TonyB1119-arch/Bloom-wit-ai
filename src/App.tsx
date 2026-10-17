@@ -588,6 +588,13 @@ function App() {
 	const [lockPulse, setLockPulse] = useState<"locked" | "unlocked" | null>(null);
 	const [lockLabel, setLockLabel] = useState("Locked");
 	const [breakPulse, setBreakPulse] = useState(false);
+	const [btPulse, setBtPulse] = useState<{ name: string; action: "paired" | "connected" } | null>(
+		null
+	);
+	const btTimerRef = useRef<any>(null);
+	// Last known devices, so only real changes (not the first load) pop up.
+	const btPrevRef = useRef<Map<string, boolean> | null>(null);
+	const announceBtRef = useRef<(name: string, action: "paired" | "connected") => void>(() => {});
 	const breakTimerRef = useRef<any>(null);
 	const lockPulseTimerRef = useRef<any>(null);
 	const [notifications, setNotifications] = useState<NotchNotification[]>([]);
@@ -2332,18 +2339,40 @@ function App() {
 		};
 	}, [refreshWifiStatus]);
 
+	// Pop up in the notch when a Bluetooth device pairs or connects.
+	announceBtRef.current = (name, action) => {
+		setBtPulse({ name, action });
+		pushNotification({
+			kind: "bluetooth",
+			title: action === "paired" ? "Device paired" : "Device connected",
+			body: name
+		});
+		playAlert("connect");
+		if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(4000);
+		if (btTimerRef.current) clearTimeout(btTimerRef.current);
+		btTimerRef.current = setTimeout(() => setBtPulse(null), 4000);
+	};
+
 	// Connected Bluetooth devices for the tile, refreshed whenever the backend
 	// reports a device connecting, disconnecting, pairing or being removed.
 	useEffect(() => {
 		if (!bluetoothEnabled) {
 			setBtConnectedNames([]);
+			btPrevRef.current = null;
 			return;
 		}
 		const refresh = () =>
-			invoke<{ name: string; connected: boolean }[]>("bluetooth_list_devices")
-				.then((devices) =>
-					setBtConnectedNames(devices.filter((d) => d.connected).map((d) => d.name))
-				)
+			invoke<{ id: string; name: string; connected: boolean }[]>("bluetooth_list_devices")
+				.then((devices) => {
+					setBtConnectedNames(devices.filter((d) => d.connected).map((d) => d.name));
+					const prev = btPrevRef.current;
+					btPrevRef.current = new Map(devices.map((d) => [d.id, d.connected]));
+					if (!prev) return; // the first list is only a baseline
+					const arrived = devices.find((d) => !prev.has(d.id));
+					const reconnected = devices.find((d) => d.connected && prev.get(d.id) === false);
+					const hit = arrived ?? reconnected;
+					if (hit) announceBtRef.current(hit.name, arrived ? "paired" : "connected");
+				})
 				.catch(() => {});
 		let debounce: ReturnType<typeof setTimeout> | undefined;
 		void refresh();
@@ -2798,7 +2827,7 @@ function App() {
 			return Math.min(200 + totalWidgets * 50, 380) - clock24hTrim;
 		}
 		if (isMusicMode && isOpen) return mediaLayout === "compact" ? 300 : 340;
-		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse || lockPulse !== null || breakPulse) && !extras.quietMode && !isHovered) return 200;
+		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse || lockPulse !== null || breakPulse || btPulse !== null) && !extras.quietMode && !isHovered) return 200;
 
 		let w = 140 - clock24hTrim;
 		if (isMusicMode) {
@@ -3273,7 +3302,7 @@ function App() {
 										>
 											<div className="main-row">
 												<AnimatePresence mode="wait">
-													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse || lockPulse !== null || breakPulse) && !extras.quietMode &&
+													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse || lockPulse !== null || breakPulse || btPulse !== null) && !extras.quietMode &&
 													!isHovered ? (
 														lockPulse ? (
 <motion.div
@@ -3290,6 +3319,40 @@ function App() {
 		style={lockPulse === "unlocked" ? { color: "#32D74B" } : undefined}
 	>
 		{lockLabel}
+	</span>
+</motion.div>
+) : btPulse ? (
+<motion.div
+	key="bt-pulse-view"
+	initial={{ opacity: 0, y: -4 }}
+	animate={{ opacity: 1, y: 0 }}
+	exit={{ opacity: 0, transition: { duration: 0.1 } }}
+	transition={{ duration: 0.2 }}
+	className="power-pulse-content"
+>
+	<svg
+		className="bt-pop"
+		width="15"
+		height="15"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="#0A84FF"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+	>
+		<path d="m7 7 10 10-5 5V2l5 5L7 17" />
+	</svg>
+	<span
+		className="label"
+		style={{
+			maxWidth: 140,
+			overflow: "hidden",
+			textOverflow: "ellipsis",
+			whiteSpace: "nowrap"
+		}}
+	>
+		{btPulse.action === "paired" ? "Paired" : "Connected"} · {btPulse.name}
 	</span>
 </motion.div>
 ) : breakPulse ? (

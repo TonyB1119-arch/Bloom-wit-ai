@@ -63,6 +63,8 @@ interface DockTabProps {
 	toggleDockSeparator: () => void;
 	dockShowTrayApps: boolean;
 	toggleDockShowTrayApps: () => void;
+	dockShowStart: boolean;
+	toggleDockShowStart: () => void;
 	dockAdaptive: boolean;
 	toggleDockAdaptive: () => void;
 	dockWinNumberEnabled: boolean;
@@ -101,6 +103,8 @@ export function DockTab({
 	toggleDockSeparator,
 	dockShowTrayApps,
 	toggleDockShowTrayApps,
+	dockShowStart,
+	toggleDockShowStart,
 	dockAdaptive,
 	toggleDockAdaptive,
 	dockWinNumberEnabled,
@@ -215,6 +219,17 @@ export function DockTab({
 								onChange={(e) => handleDockMagnificationChange(parseInt(e.target.value) / 100)}
 								className="settings-slider"
 							/>
+						</SettingRow>
+
+						<SettingRow
+							icon={Sparkles}
+							label="Show Start Icon"
+							desc="Show the Start button at the left end of the dock"
+						>
+							<label className="toggle-switch">
+								<input type="checkbox" checked={dockShowStart} onChange={toggleDockShowStart} />
+								<span className="slider"></span>
+							</label>
 						</SettingRow>
 
 						<SettingRow

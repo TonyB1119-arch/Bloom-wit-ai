@@ -1,8 +1,8 @@
 // Minimal Gemini client for the notch AI panel.
 // The key lives in settings (bloom-ai-api-key) and is sent straight to Google.
 
-export const GEMINI_MODEL = "gemini-3.5-flash-lite";
-export const GEMINI_LABEL = "Gemini 3.5 Flash-Lite";
+export const GEMINI_MODEL = "gemini-3.6-flash";
+export const GEMINI_LABEL = "Gemini 3.6 Flash";
 
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
@@ -36,7 +36,7 @@ export async function askGemini(
 	const key = apiKey.trim();
 	if (!key) throw new Error("Add your Gemini API key in Settings → Notch.");
 
-	// Gemini 3.5 Flash-Lite rejects requests whose last turn is from the model.
+	// Gemini 3.x rejects requests whose last turn is from the model.
 	const turns = history.slice(-MAX_HISTORY);
 	if (turns.length === 0 || turns[turns.length - 1].role !== "user") {
 		throw new Error("Nothing to send.");

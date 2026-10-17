@@ -201,7 +201,7 @@ export function NotchTab({
 				<SettingRow
 					icon={Bot}
 					label="AI Assistant"
-					desc="Swipe past the Command Center to chat with Gemini 3.5 Flash Lite"
+					desc="Swipe past the Command Center to chat with Gemini 3.6 Flash"
 				>
 					<label className="toggle-switch">
 						<input type="checkbox" checked={aiEnabled} onChange={toggleAi} />

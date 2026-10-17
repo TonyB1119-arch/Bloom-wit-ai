@@ -32,6 +32,9 @@ import { ShelfTypeIcon } from "./components/ShelfTypeIcon";
 import { WifiPanel } from "./components/WifiPanel";
 import { BluetoothPanel } from "./components/BluetoothPanel";
 import { AiPanel } from "./components/AiPanel";
+import { TrayPanel } from "./components/TrayPanel";
+import { NotificationsPanel } from "./components/NotificationsPanel";
+import type { NotchNotification } from "./components/NotificationsPanel";
 import { SystemPanel } from "./components/SystemPanel";
 import { WeatherPanel } from "./components/WeatherPanel";
 import type { ChatMessage } from "./lib/gemini";
@@ -280,6 +283,29 @@ function BatteryIcon({
 	);
 }
 
+function LockStateIcon({ unlocking }: { unlocking: boolean }) {
+	return (
+		<div className={`lock-state-icon ${unlocking ? "unlocking" : "locking"}`}>
+			<svg
+				width="18"
+				height="18"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			>
+				<g className="lock-shackle">
+					<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+				</g>
+				<rect x="4" y="11" width="16" height="10" rx="2.5" fill="currentColor" fillOpacity="0.18" />
+				<circle cx="12" cy="16" r="1.4" fill="currentColor" stroke="none" />
+			</svg>
+		</div>
+	);
+}
+
 function GreenDownArrowIcon() {
 	return (
 		<div
@@ -456,7 +482,9 @@ type BloomMode =
 	| "status"
 	| "shelf"
 	| "wifi"
-	| "bluetooth";
+	| "bluetooth"
+	| "tray"
+	| "notifications";
 
 // The shelf is a short-lived stash: one row, newest first, oldest evicted.
 const SHELF_MAX_ITEMS = 10;
@@ -537,6 +565,16 @@ function App() {
 	const [showPowerPulse, setShowPowerPulse] = useState(false);
 	const [showLowBatteryPulse, setShowLowBatteryPulse] = useState(false);
 	const [batteryCritical, setBatteryCritical] = useState(false);
+	const [lockPulse, setLockPulse] = useState<"locked" | "unlocked" | null>(null);
+	const lockPulseTimerRef = useRef<any>(null);
+	const [notifications, setNotifications] = useState<NotchNotification[]>([]);
+	const notificationIdRef = useRef(0);
+	// Newest first, capped so the feed can't grow without bound.
+	const pushNotification = useCallback((n: Omit<NotchNotification, "id" | "at">) => {
+		setNotifications((prev) =>
+			[{ ...n, id: ++notificationIdRef.current, at: Date.now() }, ...prev].slice(0, 30)
+		);
+	}, []);
 	const lowPulseTimerRef = useRef<any>(null);
 	const criticalShownRef = useRef(false);
 	const fullyChargedShownRef = useRef(false);
@@ -565,6 +603,11 @@ function App() {
 	useEffect(() => {
 		if (isReady && prevChargingRef.current !== null && prevChargingRef.current !== isCharging) {
 			setShowPowerPulse(true);
+			pushNotification({
+				kind: "power",
+				title: isCharging ? "Charger connected" : "Charger disconnected",
+				body: `${batteryLevel}%`
+			});
 			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(4000);
 			if (powerPulseTimeoutRef.current) clearTimeout(powerPulseTimeoutRef.current);
 			powerPulseTimeoutRef.current = setTimeout(() => {
@@ -585,6 +628,7 @@ function App() {
 			setShowLowBatteryPulse(true);
 			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(5000);
 			lowBatteryPulseShownRef.current = true;
+			pushNotification({ kind: "battery", title: "Low battery", body: `${batteryLevel}%` });
 			if (lowPulseTimerRef.current) clearTimeout(lowPulseTimerRef.current);
 			lowPulseTimerRef.current = setTimeout(() => setShowLowBatteryPulse(false), 5000);
 		}
@@ -602,6 +646,11 @@ function App() {
 		if (isReady && !isCharging && batteryLevel <= criticalThreshold && !criticalShownRef.current) {
 			criticalShownRef.current = true;
 			setBatteryCritical(true);
+			pushNotification({
+				kind: "battery",
+				title: "Battery critical",
+				body: `${batteryLevel}%, plug in now`
+			});
 			setShowLowBatteryPulse(true);
 			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(8000);
 			if (lowPulseTimerRef.current) clearTimeout(lowPulseTimerRef.current);
@@ -620,6 +669,7 @@ function App() {
 	useEffect(() => {
 		if (isReady && isCharging && batteryLevel >= 100 && !fullyChargedShownRef.current) {
 			fullyChargedShownRef.current = true;
+			pushNotification({ kind: "power", title: "Fully charged", body: "100%" });
 			setShowPowerPulse(true);
 			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(4000);
 			if (powerPulseTimeoutRef.current) clearTimeout(powerPulseTimeoutRef.current);
@@ -692,6 +742,7 @@ function App() {
 				return;
 			}
 			setShowUpdatePulse(true);
+			pushNotification({ kind: "update", title: "Update available" });
 			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(6000);
 			if (updatePulseTimerRef.current) clearTimeout(updatePulseTimerRef.current);
 			updatePulseTimerRef.current = setTimeout(() => {
@@ -1500,7 +1551,9 @@ function App() {
 			prev === "status" ||
 			prev === "shelf" ||
 			prev === "wifi" ||
-			prev === "bluetooth"
+			prev === "bluetooth" ||
+			prev === "tray" ||
+			prev === "notifications"
 				? restingModeRef.current
 				: prev
 		);
@@ -1936,6 +1989,7 @@ function App() {
 	useEffect(() => {
 		if (isTimerFinished && !prevTimerFinishedRef.current) {
 			if (settingsTimerSoundEnabled) playTimerChime();
+			pushNotification({ kind: "timer", title: "Timer finished" });
 			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(6000);
 		}
 		prevTimerFinishedRef.current = isTimerFinished;
@@ -2120,6 +2174,22 @@ function App() {
 
 		initBattery();
 	}, []);
+
+	// The Windows session was locked or unlocked (reported by the Rust watcher).
+	useEffect(() => {
+		const unlisten = listen<boolean>("session-lock-changed", (event) => {
+			const locked = !!event.payload;
+			setLockPulse(locked ? "locked" : "unlocked");
+			pushNotification({ kind: "lock", title: locked ? "PC locked" : "PC unlocked" });
+			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(locked ? 3000 : 3500);
+			if (lockPulseTimerRef.current) clearTimeout(lockPulseTimerRef.current);
+			lockPulseTimerRef.current = setTimeout(() => setLockPulse(null), locked ? 2500 : 3000);
+		});
+		return () => {
+			unlisten.then((fn) => fn());
+			if (lockPulseTimerRef.current) clearTimeout(lockPulseTimerRef.current);
+		};
+	}, [notchMode, triggerEventPeek, pushNotification]);
 
 	// Listen for Volume Changes
 	useEffect(() => {
@@ -2454,17 +2524,7 @@ function App() {
 		[sendBrightness]
 	);
 
-	// Open system tray (unhide taskbar and invoke Win+B)
-	const openSystemTray = useCallback(async (e: React.MouseEvent) => {
-		e.stopPropagation();
-		try {
-			await invoke("open_system_tray");
-		} catch (e) {
-			console.error("Failed to open system tray:", e);
-		}
-	}, []);
-
-	const openSettingsWindow = useCallback(async () => {
+		const openSettingsWindow = useCallback(async () => {
 		try {
 			await invoke("open_settings_window");
 		} catch (e) {
@@ -2622,7 +2682,13 @@ function App() {
 		if (bloomMode === "ai" && isOpen) return 400;
 		if (bloomMode === "system" && isOpen) return 360;
 		if (bloomMode === "weather" && isOpen) return 420;
-		if (bloomMode === "wifi" || bloomMode === "bluetooth") return 350;
+		if (
+			bloomMode === "wifi" ||
+			bloomMode === "bluetooth" ||
+			bloomMode === "tray" ||
+			bloomMode === "notifications"
+		)
+			return 350;
 		if (showMusicOnStatusHover) {
 			return 170 + (settingsVisualizerEnabled ? 30 : 0);
 		}
@@ -2631,7 +2697,7 @@ function App() {
 			return Math.min(200 + totalWidgets * 50, 380) - clock24hTrim;
 		}
 		if (isMusicMode && isOpen) return mediaLayout === "compact" ? 300 : 340;
-		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse) && !isHovered) return 200;
+		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse || lockPulse !== null) && !isHovered) return 200;
 
 		let w = 140 - clock24hTrim;
 		if (isMusicMode) {
@@ -2663,7 +2729,13 @@ function App() {
 		if (bloomMode === "ai") return isOpen ? 290 : 36;
 		if (bloomMode === "system") return isOpen ? 172 : 36;
 		if (bloomMode === "weather") return isOpen ? 218 : 36;
-		if (bloomMode === "wifi" || bloomMode === "bluetooth") return 300;
+		if (
+			bloomMode === "wifi" ||
+			bloomMode === "bluetooth" ||
+			bloomMode === "tray" ||
+			bloomMode === "notifications"
+		)
+			return 300;
 		if (bloomMode === "status") return 36;
 		if (isMusicMode && isOpen) {
 			const hasProgressBar = (mediaInfo.duration_ms ?? 0) > 0;
@@ -3098,10 +3170,27 @@ function App() {
 										>
 											<div className="main-row">
 												<AnimatePresence mode="wait">
-													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse) &&
+													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse || lockPulse !== null) &&
 													!isHovered ? (
-														showUpdatePulse ? (
-															<motion.div
+														lockPulse ? (
+<motion.div
+	key="lock-pulse-view"
+	initial={{ opacity: 0, y: -4 }}
+	animate={{ opacity: 1, y: 0 }}
+	exit={{ opacity: 0, transition: { duration: 0.1 } }}
+	transition={{ duration: 0.2 }}
+	className="power-pulse-content"
+>
+	<LockStateIcon unlocking={lockPulse === "unlocked"} />
+	<span
+		className="label"
+		style={lockPulse === "unlocked" ? { color: "#32D74B" } : undefined}
+	>
+		{lockPulse === "unlocked" ? "Unlocked" : "Locked"}
+	</span>
+</motion.div>
+) : showUpdatePulse ? (
+<motion.div
 																key="update-pulse-view"
 																initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
 																animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
@@ -3385,6 +3474,40 @@ function App() {
 									)}
 								</AnimatePresence>
 
+								{/* System tray icons, opened from the controls panel's tray button */}
+								<AnimatePresence>
+									{bloomMode === "tray" && (
+										<motion.div
+											key="tray-view"
+											initial={{ opacity: 0 }}
+											animate={{ opacity: 1 }}
+											exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.1 } }}
+											transition={{ type: "spring", stiffness: 400, damping: 30 }}
+										>
+											<TrayPanel onBack={() => setBloomMode("command-center")} />
+										</motion.div>
+									)}
+								</AnimatePresence>
+
+								{/* Alerts feed, opened from the controls panel's bell button */}
+								<AnimatePresence>
+									{bloomMode === "notifications" && (
+										<motion.div
+											key="notifications-view"
+											initial={{ opacity: 0 }}
+											animate={{ opacity: 1 }}
+											exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.1 } }}
+											transition={{ type: "spring", stiffness: 400, damping: 30 }}
+										>
+											<NotificationsPanel
+												items={notifications}
+												onClear={() => setNotifications([])}
+												onBack={() => setBloomMode("command-center")}
+											/>
+										</motion.div>
+									)}
+								</AnimatePresence>
+
 								{/* Command Center Panel */}
 								<AnimatePresence>
 									{bloomMode === "command-center" && (
@@ -3543,7 +3666,7 @@ function App() {
 													className="cc-circular-btn"
 													onClick={(e) => {
 														e.stopPropagation();
-														openSystemTray(e);
+														setBloomMode("tray");
 													}}
 													title="System Tray"
 												>
@@ -3553,7 +3676,7 @@ function App() {
 													className="cc-circular-btn"
 													onClick={(e) => {
 														e.stopPropagation();
-														invoke("open_notification_center");
+														setBloomMode("notifications");
 													}}
 													title="Notification Center"
 												>

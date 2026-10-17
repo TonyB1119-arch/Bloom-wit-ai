@@ -218,6 +218,8 @@ function SettingsApp() {
 							toggleDockSeparator={settings.toggleDockSeparator}
 							dockShowTrayApps={settings.dockShowTrayApps}
 							toggleDockShowTrayApps={settings.toggleDockShowTrayApps}
+							dockShowStart={settings.dockShowStart}
+							toggleDockShowStart={settings.toggleDockShowStart}
 							dockAdaptive={settings.dockAdaptive}
 							toggleDockAdaptive={settings.toggleDockAdaptive}
 							dockWinNumberEnabled={settings.dockWinNumberEnabled}

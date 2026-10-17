@@ -350,3 +350,50 @@
 	font-variant-numeric: tabular-nums;
 	letter-spacing: 0.08em;
 }
+
+/* System tray grid and notification rows (notch views) */
+.tray-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+	gap: 8px;
+	padding: 4px 2px;
+	overflow-y: auto;
+	align-content: start;
+}
+
+.tray-tile {
+	aspect-ratio: 1;
+	display: grid;
+	place-items: center;
+	padding: 0;
+	border-radius: 12px;
+	border: 1px solid var(--bloom-border, rgba(255, 255, 255, 0.04));
+	background: var(--bloom-group-bg, rgba(255, 255, 255, 0.06));
+	color: var(--bloom-text, white);
+	cursor: pointer;
+	transition:
+		transform 0.12s ease,
+		background 0.15s ease;
+}
+
+.tray-tile:hover {
+	transform: translateY(-1px);
+	background: var(--bloom-border, rgba(255, 255, 255, 0.12));
+}
+
+.tray-tile img {
+	width: 24px;
+	height: 24px;
+	object-fit: contain;
+	pointer-events: none;
+	-webkit-user-drag: none;
+}
+
+.tray-fallback {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.notif-row {
+	cursor: default;
+}

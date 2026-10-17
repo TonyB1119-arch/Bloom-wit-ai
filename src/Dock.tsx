@@ -198,6 +198,9 @@ const Dock = memo(function Dock() {
 	// Global UI scale times the dock's own size setting.
 	const scale = baseScale * dockSize;
 	const magnifying = dockMagnification > 1.001;
+	const [showStartIcon, setShowStartIcon] = useState(
+		() => localStorage.getItem("bloom-dock-show-start") !== "false"
+	);
 	const [cornersEnabled, setCornersEnabled] = useState(
 		() => localStorage.getItem("bloom-corners-enabled") === "true"
 	);
@@ -369,6 +372,7 @@ const Dock = memo(function Dock() {
 			if (Number.isFinite(magVal) && magVal >= 1) setDockMagnification(magVal);
 			setCornersEnabled(getVal("bloom-corners-enabled", "false") === "true");
 			setShowTrayApps(getVal("bloom-dock-show-tray-apps", "true") !== "false");
+			setShowStartIcon(getVal("bloom-dock-show-start", "true") !== "false");
 
 			const pinned = await invoke<AppInfo[]>("load_pinned_apps");
 			setPinnedApps(pinned.map((a) => ({ ...a, is_pinned: true })));
@@ -439,6 +443,7 @@ const Dock = memo(function Dock() {
 		"bloom-scale": setScale,
 		"bloom-corners-enabled": (v) => setCornersEnabled(String(v) === "true"),
 		"bloom-dock-show-tray-apps": (v) => setShowTrayApps(String(v) !== "false"),
+		"bloom-dock-show-start": (v) => setShowStartIcon(String(v) !== "false"),
 		"bloom-dock-size": (v) => setDockSize(Number(v) > 0 ? Number(v) : 1),
 		"bloom-dock-magnification": (v) => setDockMagnification(Number(v) >= 1 ? Number(v) : 1),
 		"bloom-dock-extras-position": setDockExtrasPosition,
@@ -914,8 +919,8 @@ const Dock = memo(function Dock() {
 	}, [pinnedApps, activeApps, activeOrder]);
 
 	const startItem = useMemo(
-		() => dockItems.find((i) => i.path === "start") as AppInfo,
-		[dockItems]
+		() => (showStartIcon ? dockItems.find((i) => i.path === "start") : undefined) as AppInfo,
+		[dockItems, showStartIcon]
 	);
 	const pinnedItems = useMemo(
 		() => dockItems.filter((i) => i.path !== "start" && i.is_pinned),

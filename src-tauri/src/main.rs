@@ -5,6 +5,7 @@ mod commands;
 mod dock_extras;
 mod services;
 mod shelf;
+mod session;
 mod shelf_preview;
 mod state;
 mod tray;
@@ -228,6 +229,9 @@ fn main() {
 
             let window = app.get_webview_window("main").unwrap();
             let dock_win = app.get_webview_window("dock").unwrap();
+
+            // Tell the UI when the Windows session is locked or unlocked.
+            session::start_monitor(app.handle().clone());
 
             // Sync window rects initially and on event
             let win_clone = window.clone();

@@ -33,6 +33,11 @@ import { WifiPanel } from "./components/WifiPanel";
 import { BluetoothPanel } from "./components/BluetoothPanel";
 import { AiPanel } from "./components/AiPanel";
 import { TrayPanel } from "./components/TrayPanel";
+import { NotesPanel } from "./components/NotesPanel";
+import { CalculatorPanel } from "./components/CalculatorPanel";
+import { useExtras } from "./hooks/useExtras";
+import { playAlertSound, unlockAudio } from "./lib/sounds";
+import type { AlertSound } from "./lib/sounds";
 import { NotificationsPanel } from "./components/NotificationsPanel";
 import type { NotchNotification } from "./components/NotificationsPanel";
 import { SystemPanel } from "./components/SystemPanel";
@@ -66,13 +71,22 @@ import {
  *   Dragging files onto the notch also opens the shelf. Wheel/swipe switches
  *   between tool panels, including when a live activity occupies the pill.
  */
-type NotchPanel = "calendar" | "command-center" | "ai" | "system" | "weather";
+type NotchPanel =
+	| "calendar"
+	| "command-center"
+	| "ai"
+	| "system"
+	| "weather"
+	| "notes"
+	| "calculator";
 const NOTCH_PANELS: readonly NotchPanel[] = [
 	"calendar",
 	"command-center",
 	"ai",
 	"system",
-	"weather"
+	"weather",
+	"notes",
+	"calculator"
 ];
 const asNotchPanel = (value: unknown): NotchPanel | null =>
 	NOTCH_PANELS.includes(value as NotchPanel) ? (value as NotchPanel) : null;
@@ -478,6 +492,8 @@ type BloomMode =
 	| "ai"
 	| "system"
 	| "weather"
+	| "notes"
+	| "calculator"
 	| "announcement"
 	| "status"
 	| "shelf"
@@ -548,6 +564,10 @@ function App() {
 
 	const [time, setTime] = useState("");
 	const [isHovered, setIsHovered] = useState(false);
+	// Optional extras from Settings → Extras.
+	const { values: extras } = useExtras();
+	const extrasRef = useRef(extras);
+	extrasRef.current = extras;
 	// Expanded into a panel by a click. Hover alone only peeks.
 	const [isOpen, setIsOpen] = useState(false);
 	const isOpenRef = useRef(false);
@@ -566,9 +586,18 @@ function App() {
 	const [showLowBatteryPulse, setShowLowBatteryPulse] = useState(false);
 	const [batteryCritical, setBatteryCritical] = useState(false);
 	const [lockPulse, setLockPulse] = useState<"locked" | "unlocked" | null>(null);
+	const [lockLabel, setLockLabel] = useState("Locked");
+	const [breakPulse, setBreakPulse] = useState(false);
+	const breakTimerRef = useRef<any>(null);
 	const lockPulseTimerRef = useRef<any>(null);
 	const [notifications, setNotifications] = useState<NotchNotification[]>([]);
 	const notificationIdRef = useRef(0);
+	// Plays a chime when Alert Sounds is on and Quiet Mode is off.
+	const playAlert = useCallback((kind: AlertSound) => {
+		const e = extrasRef.current;
+		if (!e.alertSounds || e.quietMode) return;
+		playAlertSound(kind);
+	}, []);
 	// Newest first, capped so the feed can't grow without bound.
 	const pushNotification = useCallback((n: Omit<NotchNotification, "id" | "at">) => {
 		setNotifications((prev) =>
@@ -588,7 +617,9 @@ function App() {
 	const [eventPeek, setEventPeek] = useState(false);
 	const eventPeekTimeoutRef = useRef<any>(null);
 	const updatePulseTimerRef = useRef<any>(null);
-	const triggerEventPeek = useCallback((duration = 3000) => {
+	const triggerEventPeek = useCallback((duration = 3000, force = false) => {
+		// Quiet mode keeps routine alerts from sliding the notch down.
+		if (!force && extrasRef.current.quietMode) return;
 		setEventPeek(true);
 		if (eventPeekTimeoutRef.current) clearTimeout(eventPeekTimeoutRef.current);
 		eventPeekTimeoutRef.current = setTimeout(() => setEventPeek(false), duration);
@@ -608,6 +639,7 @@ function App() {
 				title: isCharging ? "Charger connected" : "Charger disconnected",
 				body: `${batteryLevel}%`
 			});
+			playAlert(isCharging ? "connect" : "disconnect");
 			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(4000);
 			if (powerPulseTimeoutRef.current) clearTimeout(powerPulseTimeoutRef.current);
 			powerPulseTimeoutRef.current = setTimeout(() => {
@@ -629,6 +661,7 @@ function App() {
 			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(5000);
 			lowBatteryPulseShownRef.current = true;
 			pushNotification({ kind: "battery", title: "Low battery", body: `${batteryLevel}%` });
+			playAlert("low");
 			if (lowPulseTimerRef.current) clearTimeout(lowPulseTimerRef.current);
 			lowPulseTimerRef.current = setTimeout(() => setShowLowBatteryPulse(false), 5000);
 		}
@@ -651,6 +684,7 @@ function App() {
 				title: "Battery critical",
 				body: `${batteryLevel}%, plug in now`
 			});
+			playAlert("critical");
 			setShowLowBatteryPulse(true);
 			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(8000);
 			if (lowPulseTimerRef.current) clearTimeout(lowPulseTimerRef.current);
@@ -1547,6 +1581,8 @@ function App() {
 			prev === "ai" ||
 			prev === "system" ||
 			prev === "weather" ||
+			prev === "notes" ||
+			prev === "calculator" ||
 			prev === "calendar" ||
 			prev === "status" ||
 			prev === "shelf" ||
@@ -1791,7 +1827,8 @@ function App() {
 			target.closest(".timer-column") ||
 			target.closest(".shelf-content") ||
 			target.closest(".qp-list") ||
-			target.closest(".ai-messages")
+			target.closest(".ai-messages") ||
+			target.closest(".notes-area")
 		) {
 			return;
 		}
@@ -1810,6 +1847,8 @@ function App() {
 		if (panel === "calendar") return settingsCalendarEnabled;
 		if (panel === "ai") return settingsAiEnabled;
 		if (panel === "weather") return settingsWeatherEnabled;
+		if (panel === "notes") return extras.notesEnabled;
+		if (panel === "calculator") return extras.calculatorEnabled;
 		return true;
 	}
 
@@ -1990,7 +2029,7 @@ function App() {
 		if (isTimerFinished && !prevTimerFinishedRef.current) {
 			if (settingsTimerSoundEnabled) playTimerChime();
 			pushNotification({ kind: "timer", title: "Timer finished" });
-			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(6000);
+			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(6000, true);
 		}
 		prevTimerFinishedRef.current = isTimerFinished;
 	}, [isTimerFinished, settingsTimerSoundEnabled, notchMode, triggerEventPeek]);
@@ -2082,6 +2121,15 @@ function App() {
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [settingsAiEnabled, bloomMode, isOpen]);
+
+	// Leave the notes or calculator panel if it gets turned off in settings
+	useEffect(() => {
+		const gone =
+			(bloomMode === "notes" && !extras.notesEnabled) ||
+			(bloomMode === "calculator" && !extras.calculatorEnabled);
+		if (gone) setBloomMode(isOpen ? openingPanel() : collapsedMode);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [extras.notesEnabled, extras.calculatorEnabled, bloomMode, isOpen]);
 
 	// Leave the weather panel if weather gets turned off in settings
 	useEffect(() => {
@@ -2175,11 +2223,62 @@ function App() {
 		initBattery();
 	}, []);
 
+	// Break reminders: a gentle nudge every N minutes while enabled.
+	useEffect(() => {
+		if (!extras.breakReminders) return;
+		const interval = setInterval(
+			() => {
+				setBreakPulse(true);
+				pushNotification({
+					kind: "break",
+					title: "Time for a break",
+					body: "Rest your eyes for 20 seconds"
+				});
+				playAlert("break");
+				if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(5000);
+				if (breakTimerRef.current) clearTimeout(breakTimerRef.current);
+				breakTimerRef.current = setTimeout(() => setBreakPulse(false), 5000);
+			},
+			Math.max(5, extras.breakInterval) * 60_000
+		);
+		return () => {
+			clearInterval(interval);
+			if (breakTimerRef.current) clearTimeout(breakTimerRef.current);
+			setBreakPulse(false);
+		};
+	}, [
+		extras.breakReminders,
+		extras.breakInterval,
+		notchMode,
+		triggerEventPeek,
+		pushNotification,
+		playAlert
+	]);
+
+	// Browsers only allow sound after a click, so unlock audio on the first one.
+	useEffect(() => {
+		if (!extras.alertSounds) return;
+		const unlock = () => unlockAudio();
+		window.addEventListener("pointerdown", unlock, { once: true });
+		return () => window.removeEventListener("pointerdown", unlock);
+	}, [extras.alertSounds]);
+
 	// The Windows session was locked or unlocked (reported by the Rust watcher).
 	useEffect(() => {
 		const unlisten = listen<boolean>("session-lock-changed", (event) => {
 			const locked = !!event.payload;
 			setLockPulse(locked ? "locked" : "unlocked");
+			const hour = new Date().getHours();
+			const greeting =
+				hour >= 5 && hour < 12
+					? "Good morning"
+					: hour >= 12 && hour < 17
+						? "Good afternoon"
+						: hour >= 17 && hour < 22
+							? "Good evening"
+							: "Welcome back";
+			setLockLabel(locked ? "Locked" : extrasRef.current.welcomeGreeting ? greeting : "Unlocked");
+			playAlert(locked ? "lock" : "unlock");
 			pushNotification({ kind: "lock", title: locked ? "PC locked" : "PC unlocked" });
 			if (notchMode === "peek" || notchMode === "smart") triggerEventPeek(locked ? 3000 : 3500);
 			if (lockPulseTimerRef.current) clearTimeout(lockPulseTimerRef.current);
@@ -2189,7 +2288,7 @@ function App() {
 			unlisten.then((fn) => fn());
 			if (lockPulseTimerRef.current) clearTimeout(lockPulseTimerRef.current);
 		};
-	}, [notchMode, triggerEventPeek, pushNotification]);
+	}, [notchMode, triggerEventPeek, pushNotification, playAlert]);
 
 	// Listen for Volume Changes
 	useEffect(() => {
@@ -2682,6 +2781,8 @@ function App() {
 		if (bloomMode === "ai" && isOpen) return 400;
 		if (bloomMode === "system" && isOpen) return 360;
 		if (bloomMode === "weather" && isOpen) return 420;
+		if (bloomMode === "notes" && isOpen) return 360;
+		if (bloomMode === "calculator" && isOpen) return 300;
 		if (
 			bloomMode === "wifi" ||
 			bloomMode === "bluetooth" ||
@@ -2697,7 +2798,7 @@ function App() {
 			return Math.min(200 + totalWidgets * 50, 380) - clock24hTrim;
 		}
 		if (isMusicMode && isOpen) return mediaLayout === "compact" ? 300 : 340;
-		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse || lockPulse !== null) && !isHovered) return 200;
+		if ((showPowerPulse || showLowBatteryPulse || showUpdatePulse || lockPulse !== null || breakPulse) && !extras.quietMode && !isHovered) return 200;
 
 		let w = 140 - clock24hTrim;
 		if (isMusicMode) {
@@ -2729,6 +2830,8 @@ function App() {
 		if (bloomMode === "ai") return isOpen ? 290 : 36;
 		if (bloomMode === "system") return isOpen ? 172 : 36;
 		if (bloomMode === "weather") return isOpen ? 218 : 36;
+		if (bloomMode === "notes") return isOpen ? 232 : 36;
+		if (bloomMode === "calculator") return isOpen ? 304 : 36;
 		if (
 			bloomMode === "wifi" ||
 			bloomMode === "bluetooth" ||
@@ -3170,7 +3273,7 @@ function App() {
 										>
 											<div className="main-row">
 												<AnimatePresence mode="wait">
-													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse || lockPulse !== null) &&
+													{(showPowerPulse || showLowBatteryPulse || showUpdatePulse || lockPulse !== null || breakPulse) && !extras.quietMode &&
 													!isHovered ? (
 														lockPulse ? (
 <motion.div
@@ -3186,8 +3289,33 @@ function App() {
 		className="label"
 		style={lockPulse === "unlocked" ? { color: "#32D74B" } : undefined}
 	>
-		{lockPulse === "unlocked" ? "Unlocked" : "Locked"}
+		{lockLabel}
 	</span>
+</motion.div>
+) : breakPulse ? (
+<motion.div
+	key="break-pulse-view"
+	initial={{ opacity: 0, y: -4 }}
+	animate={{ opacity: 1, y: 0 }}
+	exit={{ opacity: 0, transition: { duration: 0.1 } }}
+	transition={{ duration: 0.2 }}
+	className="power-pulse-content"
+>
+	<svg
+		width="16"
+		height="16"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		strokeWidth="2"
+		strokeLinecap="round"
+		strokeLinejoin="round"
+	>
+		<path d="M17 8h1a4 4 0 1 1 0 8h-1" />
+		<path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
+		<path d="M6 2v2M10 2v2M14 2v2" />
+	</svg>
+	<span className="label">Take a break</span>
 </motion.div>
 ) : showUpdatePulse ? (
 <motion.div
@@ -3863,6 +3991,38 @@ function App() {
 											transition={{ type: "spring", stiffness: 400, damping: 30 }}
 										>
 											<WeatherPanel tempUnit={tempUnit} />
+										</motion.div>
+									)}
+								</AnimatePresence>
+
+								{/* Quick Notes */}
+								<AnimatePresence>
+									{bloomMode === "notes" && extras.notesEnabled && (
+										<motion.div
+											key="notes-panel"
+											className="panel-fade"
+											initial={{ opacity: 0 }}
+											animate={{ opacity: 1 }}
+											exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.1 } }}
+											transition={{ type: "spring", stiffness: 400, damping: 30 }}
+										>
+											<NotesPanel onPinChange={setNotchPinned} />
+										</motion.div>
+									)}
+								</AnimatePresence>
+
+								{/* Calculator */}
+								<AnimatePresence>
+									{bloomMode === "calculator" && extras.calculatorEnabled && (
+										<motion.div
+											key="calculator-panel"
+											className="panel-fade"
+											initial={{ opacity: 0 }}
+											animate={{ opacity: 1 }}
+											exit={{ opacity: 0, filter: "blur(4px)", transition: { duration: 0.1 } }}
+											transition={{ type: "spring", stiffness: 400, damping: 30 }}
+										>
+											<CalculatorPanel />
 										</motion.div>
 									)}
 								</AnimatePresence>

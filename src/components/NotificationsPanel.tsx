@@ -1,10 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import { BatteryLow, Bell, ChevronLeft, Download, Lock, Timer, Trash2, Zap } from "lucide-react";
+import { BatteryLow, Bell, ChevronLeft, Coffee, Download, Lock, Timer, Trash2, Zap } from "lucide-react";
 import "./QuickPanel.css";
 
 export interface NotchNotification {
 	id: number;
-	kind: "battery" | "power" | "lock" | "update" | "timer";
+	kind: "battery" | "power" | "lock" | "update" | "timer" | "break";
 	title: string;
 	body?: string;
 	at: number;
@@ -22,6 +22,8 @@ function KindIcon({ kind }: { kind: NotchNotification["kind"] }) {
 			return <Download />;
 		case "timer":
 			return <Timer />;
+		case "break":
+			return <Coffee />;
 		default:
 			return <Bell />;
 	}

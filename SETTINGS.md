@@ -26,6 +26,13 @@ Edit `settings.json` with any text editor while Bloom is running. Changes are ap
 | `bloom-dock-edge-delay`            | milliseconds `"0"`–`"2000"`      | `"200"`       | In smart/peek mode, how long the cursor must rest against the bottom screen edge before the dock appears. `"0"` reveals instantly.                                               |
 | `bloom-dock-show-tray-apps`        | `"true"` / `"false"`             | `"true"`      | Show background apps that only have a system tray icon as dock items. Apps with a visible window always appear. |
 | `bloom-dock-show-start`            | `"true"` / `"false"`             | `"true"`      | Show the Start button at the left end of the dock. `"false"` hides it completely. |
+| `bloom-notes-enabled` | `"true"` / `"false"` | `"false"` | Add a Quick Notes page to the notch (after Weather). The note text itself stays in `bloom-notes-text`, which is local to this PC. |
+| `bloom-calculator-enabled` | `"true"` / `"false"` | `"false"` | Add a Calculator page to the notch (after Quick Notes). |
+| `bloom-alert-sounds-enabled` | `"true"` / `"false"` | `"false"` | Play short chimes for charger, low battery, lock and unlock. |
+| `bloom-welcome-greeting-enabled` | `"true"` / `"false"` | `"false"` | Show a time-of-day greeting in the unlock animation. |
+| `bloom-break-reminder-enabled` | `"true"` / `"false"` | `"false"` | Show a break reminder in the notch on a timer. |
+| `bloom-break-interval` | minutes | `"20"` | Minutes between break reminders, `"5"` to `"90"`. |
+| `bloom-quiet-mode` | `"true"` / `"false"` | `"false"` | Silence notch alert pulses and sounds. Alerts still appear in the notification list. |
 | `bloom-dock-size`                  | float string `"0.7"`–`"1.5"`     | `"1.0"`       | Size of the dock on its own, multiplied with `bloom-scale`. Changing it re-registers the dock's reserved screen area.                                                            |
 | `bloom-dock-magnification`         | float string `"1.0"`–`"1.8"`     | `"1.0"`       | Macintosh-style magnification: dock icons grow (up to this factor) near the cursor. `"1.0"` turns it off.                                                                        |
 | `bloom-dock-preview-enabled`       | `"true"` / `"false"`             | `"true"`      | Show window thumbnail previews when hovering dock icons.                                                                                                                         |
